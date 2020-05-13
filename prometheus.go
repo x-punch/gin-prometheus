@@ -17,6 +17,7 @@ type URLFormater func(c *gin.Context) string
 
 // Prometheus contains the metrics gathered by the instance and its path
 type Prometheus struct {
+	uptime               *prometheus.CounterVec
 	reqCnt               *prometheus.CounterVec
 	reqDur, reqSz, resSz prometheus.Summary
 	router               *gin.Engine
@@ -44,6 +45,9 @@ func NewPrometheus(subsystem string) *Prometheus {
 		},
 	}
 	p.registerMetrics(subsystem)
+	for range time.Tick(time.Second) {
+		p.uptime.WithLabelValues().Inc()
+	}
 
 	return p
 }
@@ -99,7 +103,6 @@ func (p *Prometheus) setMetricsPathWithAuth(e *gin.Engine, accounts gin.Accounts
 	} else {
 		e.GET(metricsPath, gin.BasicAuth(accounts), prometheusHandler())
 	}
-
 }
 
 func (p *Prometheus) runServer() {

@@ -8,6 +8,13 @@ import (
 //	counter, counter_vec, gauge, gauge_vec,
 //	histogram, histogram_vec, summary, summary_vec
 var (
+	uptime = &Metric{
+		ID:          "uptime",
+		Name:        "uptime",
+		Description: "HTTP service uptime.",
+		Type:        "counter_vec",
+	}
+
 	reqCnt = &Metric{
 		ID:          "reqCnt",
 		Name:        "requests_total",
@@ -34,6 +41,7 @@ var (
 		Type:        "summary"}
 
 	standardMetrics = []*Metric{
+		uptime,
 		reqCnt,
 		reqDur,
 		resSz,
@@ -135,6 +143,8 @@ func (p *Prometheus) registerMetrics(subsystem string) {
 			errorLog(metricDef.Name + " couldn't be registered in Prometheus: " + err.Error())
 		}
 		switch metricDef {
+		case uptime:
+			p.uptime = metric.(*prometheus.CounterVec)
 		case reqCnt:
 			p.reqCnt = metric.(*prometheus.CounterVec)
 		case reqDur:
