@@ -45,10 +45,11 @@ func NewPrometheus(subsystem string) *Prometheus {
 		},
 	}
 	p.registerMetrics(subsystem)
-	for range time.Tick(time.Second) {
-		p.uptime.WithLabelValues().Inc()
-	}
-
+	go func() {
+		for range time.Tick(time.Second) {
+			p.uptime.WithLabelValues().Inc()
+		}
+	}()
 	return p
 }
 
