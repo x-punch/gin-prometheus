@@ -44,7 +44,7 @@ func (p *Prometheus) sendMetricsToPushGateway(metrics []byte) {
 	client := &http.Client{}
 	_, err = client.Do(req)
 	if err != nil {
-		errorLog("Error sending to push gateway: %s" + err.Error())
+		p.Logger.Error("Error sending to push gateway: %s" + err.Error())
 	}
 }
 
@@ -60,18 +60,18 @@ func (p *Prometheus) startPushTicker() {
 func (p *Prometheus) getMetrics() []byte {
 	response, err := http.Get(p.PushGateway.MetricsURL)
 	if err != nil {
-		errorLog(err.Error())
+		p.Logger.Error(err.Error())
 	}
 
 	defer func() {
 		if err := response.Body.Close(); err != nil {
-			errorLog(err.Error())
+			p.Logger.Error(err.Error())
 		}
 	}()
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		errorLog(err.Error())
+		p.Logger.Error(err.Error())
 	}
 
 	return body

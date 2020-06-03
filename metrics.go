@@ -12,33 +12,35 @@ var (
 		ID:          "uptime",
 		Name:        "uptime",
 		Description: "HTTP service uptime.",
-		Type:        "counter_vec",
-	}
+		Type:        "counter_vec"}
 
 	reqCnt = &Metric{
 		ID:          "reqCnt",
 		Name:        "requests_total",
 		Description: "How many HTTP requests processed, partitioned by status code and HTTP method.",
 		Type:        "counter_vec",
-		Args:        []string{"code", "method", "host", "url"}}
+		Args:        []string{"status", "method", "host", "url"}}
 
 	reqDur = &Metric{
 		ID:          "reqDur",
 		Name:        "request_duration_seconds",
 		Description: "The HTTP request latencies in seconds.",
-		Type:        "summary"}
+		Type:        "histogram_vec",
+		Args:        []string{"status", "method", "host", "url"}}
 
 	resSz = &Metric{
 		ID:          "resSz",
 		Name:        "response_size_bytes",
 		Description: "The HTTP response sizes in bytes.",
-		Type:        "summary"}
+		Type:        "summary_vec",
+		Args:        []string{"status", "method", "host", "url"}}
 
 	reqSz = &Metric{
 		ID:          "reqSz",
 		Name:        "request_size_bytes",
 		Description: "The HTTP request sizes in bytes.",
-		Type:        "summary"}
+		Type:        "summary_vec",
+		Args:        []string{"status", "method", "host", "url"}}
 
 	standardMetrics = []*Metric{
 		uptime,
@@ -140,7 +142,7 @@ func (p *Prometheus) registerMetrics(subsystem string) {
 	for _, metricDef := range p.MetricsList {
 		metric := NewMetric(metricDef, subsystem)
 		if err := prometheus.Register(metric); err != nil {
-			errorLog(metricDef.Name + " couldn't be registered in Prometheus: " + err.Error())
+			p.Logger.Error(metricDef.Name + " couldn't be registered in Prometheus: " + err.Error())
 		}
 		switch metricDef {
 		case uptime:
@@ -148,11 +150,11 @@ func (p *Prometheus) registerMetrics(subsystem string) {
 		case reqCnt:
 			p.reqCnt = metric.(*prometheus.CounterVec)
 		case reqDur:
-			p.reqDur = metric.(prometheus.Summary)
+			p.reqDur = metric.(*prometheus.HistogramVec)
 		case resSz:
-			p.resSz = metric.(prometheus.Summary)
+			p.resSz = metric.(*prometheus.SummaryVec)
 		case reqSz:
-			p.reqSz = metric.(prometheus.Summary)
+			p.reqSz = metric.(*prometheus.SummaryVec)
 		}
 		metricDef.MetricCollector = metric
 	}

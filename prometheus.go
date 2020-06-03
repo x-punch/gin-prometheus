@@ -1,7 +1,6 @@
 package prometheus
 
 import (
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -17,14 +16,16 @@ type URLFormater func(c *gin.Context) string
 
 // Prometheus contains the metrics gathered by the instance and its path
 type Prometheus struct {
-	uptime               *prometheus.CounterVec
-	reqCnt               *prometheus.CounterVec
-	reqDur, reqSz, resSz prometheus.Summary
-	router               *gin.Engine
-	listenAddress        string
-	PushGateway          PushGateway
-	MetricsList          []*Metric
-	FormatCounterURL     URLFormater
+	uptime           *prometheus.CounterVec
+	reqCnt           *prometheus.CounterVec
+	reqSz, resSz     *prometheus.SummaryVec
+	reqDur           *prometheus.HistogramVec
+	router           *gin.Engine
+	listenAddress    string
+	PushGateway      PushGateway
+	MetricsList      []*Metric
+	FormatCounterURL URLFormater
+	Logger           Logger
 }
 
 // NewPrometheus generates a new set of metrics with a certain subsystem name
@@ -43,6 +44,7 @@ func NewPrometheus(subsystem string) *Prometheus {
 			}
 			return url
 		},
+		Logger: DefaultLogger{},
 	}
 	p.registerMetrics(subsystem)
 	go func() {
@@ -110,7 +112,7 @@ func (p *Prometheus) runServer() {
 	if p.listenAddress != "" {
 		go func() {
 			if err := p.router.Run(p.listenAddress); err != nil {
-				errorLog(err.Error())
+				p.Logger.Error(err.Error())
 			}
 		}()
 	}
@@ -132,14 +134,14 @@ func (p *Prometheus) handlerFunc(metricsPath string) gin.HandlerFunc {
 
 		c.Next()
 
+		url := p.FormatCounterURL(c)
 		status := strconv.Itoa(c.Writer.Status())
-		elapsed := float64(time.Since(start)) / float64(time.Second)
 		resSz := float64(c.Writer.Size())
 
-		p.reqDur.Observe(elapsed)
-		p.reqCnt.WithLabelValues(status, c.Request.Method, c.Request.Host, p.FormatCounterURL(c)).Inc()
-		p.reqSz.Observe(float64(reqSz))
-		p.resSz.Observe(resSz)
+		p.reqDur.WithLabelValues(status, c.Request.Method, c.Request.Host, url).Observe(time.Since(start).Seconds())
+		p.reqCnt.WithLabelValues(status, c.Request.Method, c.Request.Host, url).Inc()
+		p.reqSz.WithLabelValues(status, c.Request.Method, c.Request.Host, url).Observe(float64(reqSz))
+		p.resSz.WithLabelValues(status, c.Request.Method, c.Request.Host, url).Observe(resSz)
 	}
 }
 
@@ -175,8 +177,4 @@ func computeApproximateRequestSize(r *http.Request) int {
 		s += int(r.ContentLength)
 	}
 	return s
-}
-
-func errorLog(err string) {
-	log.Print("[PROM]" + err)
 }
